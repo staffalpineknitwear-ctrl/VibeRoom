@@ -1246,8 +1246,9 @@ function App() {
                 </div>
               )}
 
-              {messages.map((msg) => {
+              {messages.map((msg, index) => {
                 const mine = msg.from === "you";
+                const isLatest = index === messages.length - 1;
 
                 return (
                   <div
