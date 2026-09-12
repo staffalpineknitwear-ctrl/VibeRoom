@@ -433,6 +433,9 @@ function App() {
   const [chatLoading, setChatLoading] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState("Connecting...");
   const [roomError, setRoomError] = useState("");
+  const [friendTyping, setFriendTyping] = useState(false);
+  const typingChannelRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -484,6 +487,8 @@ function App() {
     let mounted = true;
     let channel;
 
+    setFriendTyping(false);
+
     const loadMessages = async () => {
       setChatLoading(true);
       setConnectionStatus("Connecting...");
@@ -518,7 +523,28 @@ function App() {
     loadMessages();
 
     channel = supabase
-      .channel(`room-${roomCode}`)
+      .channel(`room-${roomCode}`, {
+        config: {
+          broadcast: { self: false },
+        },
+      })
+      .on(
+        "broadcast",
+        { event: "typing" },
+        ({ payload }) => {
+          if (!mounted || !payload) return;
+          if (payload.sender_id === user.id) return;
+
+          setFriendTyping(Boolean(payload.is_typing));
+
+          if (payload.is_typing) {
+            clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => {
+              if (mounted) setFriendTyping(false);
+            }, 3500);
+          }
+        }
+      )
       .on(
         "postgres_changes",
         {
@@ -568,8 +594,13 @@ function App() {
         }
       });
 
+    typingChannelRef.current = channel;
+
     return () => {
       mounted = false;
+      setFriendTyping(false);
+      clearTimeout(typingTimeoutRef.current);
+      typingChannelRef.current = null;
       if (channel) supabase.removeChannel(channel);
     };
   }, [user, roomCode]);
@@ -655,12 +686,55 @@ function App() {
     }, 1800);
   };
 
+  const handleTyping = (value) => {
+    setText(value);
+
+    const channel = typingChannelRef.current;
+    if (!channel || !user || !roomCode) return;
+
+    clearTimeout(typingTimeoutRef.current);
+
+    channel.send({
+      type: "broadcast",
+      event: "typing",
+      payload: {
+        sender_id: user.id,
+        is_typing: Boolean(value.trim()),
+      },
+    });
+
+    if (value.trim()) {
+      typingTimeoutRef.current = setTimeout(() => {
+        channel.send({
+          type: "broadcast",
+          event: "typing",
+          payload: {
+            sender_id: user.id,
+            is_typing: false,
+          },
+        });
+      }, 1200);
+    }
+  };
+
   const send = async () => {
     const content = text.trim();
 
     if (!content || !user || !roomCode) return;
 
     setText("");
+    clearTimeout(typingTimeoutRef.current);
+
+    if (typingChannelRef.current) {
+      typingChannelRef.current.send({
+        type: "broadcast",
+        event: "typing",
+        payload: {
+          sender_id: user.id,
+          is_typing: false,
+        },
+      });
+    }
 
     const { error } = await supabase.from("messages").insert({
       room_code: roomCode,
@@ -1246,6 +1320,26 @@ function App() {
                   </div>
                 );
               })}
+
+              {friendTyping && (
+                <div className="typing-row">
+                  <Avatar
+                    character={characters.friend}
+                    size="small"
+                    style={{
+                      width: 38,
+                      height: 57,
+                      flex: "0 0 38px",
+                      marginBottom: 1,
+                    }}
+                  />
+                  <div className="typing-bubble" aria-label="Friend is typing">
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div
@@ -1294,7 +1388,7 @@ function App() {
 
               <input
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={(e) => handleTyping(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     send();
