@@ -57,11 +57,11 @@ const defaultFriend = {
   expression: "happy",
 };
 
-function Avatar({ character, size = "large", mood = "" }) {
+function Avatar({ character, size = "large", mood = "", style }) {
   const female = character.gender === "female";
 
   return (
-    <div className={`avatar avatar-${size} ${mood}`}>
+    <div className={`avatar avatar-${size} ${mood}`} style={style}>
       <svg
         viewBox="0 0 240 360"
         className="avatar-svg"
@@ -418,6 +418,7 @@ function App() {
   const [draft, setDraft] = useState(defaultYou);
 
   const [messages, setMessages] = useState([]);
+  const chatMessagesRef = useRef(null);
   const [text, setText] = useState("");
   const [reaction, setReaction] = useState(null);
   const [toast, setToast] = useState("");
@@ -603,6 +604,15 @@ function App() {
       if (channel) supabase.removeChannel(channel);
     };
   }, [user, roomCode]);
+
+  useEffect(() => {
+    if (activeTab !== "chat" || !chatMessagesRef.current) return;
+
+    const element = chatMessagesRef.current;
+    requestAnimationFrame(() => {
+      element.scrollTop = element.scrollHeight;
+    });
+  }, [messages, activeTab]);
 
   const makeRoomCode = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -1168,74 +1178,146 @@ function App() {
         {/* ================= CHAT ================= */}
 
         {activeTab === "chat" && (
-          <section className="chat-screen">
-
-            <div className="section-heading">
-
+          <section
+            className="chat-screen"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              minHeight: "calc(100dvh - 150px)",
+              maxHeight: "calc(100dvh - 150px)",
+              overflow: "hidden",
+            }}
+          >
+            <div className="section-heading" style={{ flexShrink: 0 }}>
               <div>
-                <span className="mini-label">
-                  PRIVATE CHAT
-                </span>
-
-                <h2>
-                  Messages
-                </h2>
+                <span className="mini-label">PRIVATE CHAT</span>
+                <h2>Messages</h2>
               </div>
 
-              <Avatar
-                character={characters.friend}
-                size="small"
-              />
-
+              <div
+                style={{
+                  width: 44,
+                  height: 54,
+                  display: "flex",
+                  alignItems: "flex-end",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                  flexShrink: 0,
+                }}
+              >
+                <Avatar
+                  character={characters.friend}
+                  size="small"
+                  style={{
+                    width: 38,
+                    height: 57,
+                    flex: "0 0 38px",
+                  }}
+                />
+              </div>
             </div>
 
-            <div className="chat-messages">
-
+            <div
+              ref={chatMessagesRef}
+              className="chat-messages"
+              style={{
+                flex: "1 1 auto",
+                minHeight: 0,
+                overflowY: "auto",
+                overflowX: "hidden",
+                WebkitOverflowScrolling: "touch",
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+                padding: "8px 2px 18px",
+                scrollBehavior: "smooth",
+              }}
+            >
               {messages.length === 0 && !chatLoading && (
                 <div
                   style={{
                     textAlign: "center",
                     opacity: 0.5,
-                    padding: "32px 12px",
-                    fontSize: "13px",
+                    padding: "38px 12px",
+                    fontSize: 13,
                   }}
                 >
                   No messages yet. Say hi 👋
                 </div>
               )}
 
-              {messages.map((msg, index) => {
-                const isLatest = index === messages.length - 1;
+              {messages.map((msg) => {
+                const mine = msg.from === "you";
 
                 return (
-                <div
-                  key={msg.id}
-                  className={`message-row ${
-                    msg.from === "you"
-                      ? "mine"
-                      : "theirs"
-                  } ${isLatest ? "message-latest" : "message-old"}`}
-                >
+                  <div
+                    key={msg.id}
+                    className={`message-row ${mine ? "mine" : "theirs"}`}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "flex-end",
+                      justifyContent: mine ? "flex-end" : "flex-start",
+                      gap: 8,
+                      padding: "0 2px",
+                      boxSizing: "border-box",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {!mine && (
+                      <Avatar
+                        character={characters.friend}
+                        size="small"
+                        style={{
+                          width: 38,
+                          height: 57,
+                          flex: "0 0 38px",
+                          marginBottom: 1,
+                        }}
+                      />
+                    )}
 
-                  {msg.from === "friend" && (
-                    <Avatar
-                      character={characters.friend}
-                      size="small"
-                    />
-                  )}
+                    <div
+                      className="message-bubble"
+                      style={{
+                        width: "fit-content",
+                        maxWidth: "min(76%, 320px)",
+                        padding: "10px 14px",
+                        borderRadius: mine
+                          ? "18px 18px 5px 18px"
+                          : "18px 18px 18px 5px",
+                        background: mine
+                          ? "linear-gradient(135deg, #754ED2, #5E3EB8)"
+                          : "rgba(255,255,255,.075)",
+                        border: mine
+                          ? "1px solid rgba(255,255,255,.08)"
+                          : "1px solid rgba(255,255,255,.10)",
+                        color: "#fff",
+                        fontSize: 14,
+                        lineHeight: 1.45,
+                        boxShadow: mine
+                          ? "0 7px 18px rgba(117,78,210,.22)"
+                          : "0 7px 18px rgba(0,0,0,.14)",
+                        overflowWrap: "anywhere",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {msg.text}
+                    </div>
 
-                  <div className="message-bubble">
-                    {msg.text}
+                    {mine && (
+                      <Avatar
+                        character={characters.you}
+                        size="small"
+                        style={{
+                          width: 38,
+                          height: 57,
+                          flex: "0 0 38px",
+                          marginBottom: 1,
+                        }}
+                      />
+                    )}
                   </div>
-
-                  {msg.from === "you" && (
-                    <Avatar
-                      character={characters.you}
-                      size="small"
-                    />
-                  )}
-
-                </div>
                 );
               })}
 
@@ -1244,6 +1326,12 @@ function App() {
                   <Avatar
                     character={characters.friend}
                     size="small"
+                    style={{
+                      width: 38,
+                      height: 57,
+                      flex: "0 0 38px",
+                      marginBottom: 1,
+                    }}
                   />
                   <div className="typing-bubble" aria-label="Friend is typing">
                     <span className="typing-dot" />
@@ -1252,73 +1340,76 @@ function App() {
                   </div>
                 </div>
               )}
-
             </div>
 
-            <div className="quick-replies">
-
-              <button
-                onClick={() =>
-                  quickMessage("Miss you ❤️")
-                }
-              >
+            <div
+              className="quick-replies"
+              style={{
+                flexShrink: 0,
+                display: "flex",
+                gap: 8,
+                overflowX: "auto",
+                padding: "4px 0 10px",
+                scrollbarWidth: "none",
+              }}
+            >
+              <button onClick={() => quickMessage("Miss you ❤️")}>
                 Miss you ❤️
               </button>
 
-              <button
-                onClick={() =>
-                  quickMessage("😂😂")
-                }
-              >
-                😂😂
-              </button>
+              <button onClick={() => quickMessage("😂😂")}>😂😂</button>
 
-              <button
-                onClick={() =>
-                  quickMessage("Wait 👀")
-                }
-              >
+              <button onClick={() => quickMessage("Wait 👀")}>
                 Wait 👀
               </button>
 
-              <button
-                onClick={() =>
-                  quickMessage("Let's play 🎮")
-                }
-              >
+              <button onClick={() => quickMessage("Let's play 🎮")}>
                 Let's play 🎮
               </button>
-
             </div>
 
-            <div className="message-input-area">
-
-              <button className="input-icon">
+            <div
+              className="message-input-area"
+              style={{
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 0 max(8px, env(safe-area-inset-bottom))",
+              }}
+            >
+              <button
+                className="input-icon"
+                type="button"
+                aria-label="Add"
+              >
                 ＋
               </button>
 
               <input
                 value={text}
-                onChange={(e) =>
-                  handleTyping(e.target.value)
-                }
+                onChange={(e) => handleTyping(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     send();
                   }
                 }}
                 placeholder="Type something..."
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                }}
               />
 
               <button
                 className="send-button"
                 onClick={send}
+                type="button"
+                aria-label="Send message"
               >
                 ➤
               </button>
-
             </div>
-
           </section>
         )}
 
