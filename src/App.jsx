@@ -1253,7 +1253,7 @@ function App() {
                 return (
                   <div
                     key={msg.id}
-                    className={`message-row ${mine ? "mine" : "theirs"}`}
+                    className={`message-row ${mine ? "mine" : "theirs"} ${isLatest ? "message-latest" : "message-old"}`}
                     style={{
                       width: "100%",
                       display: "flex",
