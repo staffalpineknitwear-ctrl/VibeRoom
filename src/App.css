@@ -1662,3 +1662,31 @@ p {
 .input-icon:active {
   transform: scale(.94);
 }
+
+
+/* ================= MESSAGE PRIVACY ================= */
+/* Only the newest message stays fully readable. Older messages are softly blurred. */
+.message-row.message-old {
+  filter: blur(4px);
+  opacity: .55;
+  transform: scale(.995);
+  transition: filter .25s ease, opacity .25s ease, transform .25s ease;
+  user-select: none;
+}
+
+.message-row.message-latest {
+  filter: none;
+  opacity: 1;
+  transform: none;
+}
+
+.message-row.message-old:hover {
+  filter: blur(2px);
+  opacity: .7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-row.message-old {
+    transition: none;
+  }
+}
